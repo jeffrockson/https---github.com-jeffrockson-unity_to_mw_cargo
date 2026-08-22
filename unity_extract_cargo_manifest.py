@@ -44,6 +44,10 @@ TESTING_ITERATION_LIMIT = 10
 
 
 
+def handle_
+
+
+
 def build_domain_manifest(domain: str, domain_data: dict, manifest: dict, verbose: bool) -> dict:
     """Builds the manifest for a domain."""
     manifest[MANIFEST_TEMPLATES_DECLARE][domain] = {}
