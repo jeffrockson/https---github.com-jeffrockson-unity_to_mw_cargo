@@ -1,13 +1,14 @@
-# pylint: disable=line-too-long
+# pylint: disable=line-too-long, no-else-return
 """Standardizes records by adding missing fields and coercing lists."""
 import json
+from sys import stdout
 from pathlib import Path
 
-from unity_compile_domain_data import META_FIELDS, META_ITEMS, META_TYPES, META_TYPE_GUID_LIST, META_TYPE_GUID, META_TYPE_INT, META_TYPE_FLOAT, META_TYPE_BOOL, META_TYPE_STRING
+from unity_compile_domain_data import META_FIELDS, META_ITEMS, META_TYPES, META_TYPE_GUID_LIST, META_TYPE_GUID
 
 
 
-ROOT_PATH = Path(__file__).parent.parent
+ROOT_PATH = Path(__file__).parent
 WRITE_STANDARDIZED_DATA_PATH = ROOT_PATH / "standardized_domain_data.json"
 
 META_KEY_FIELDS = "META_DOMAIN_FIELDS"
@@ -59,6 +60,17 @@ def is_scalar(schema_node: dict) -> bool:
     """Checks if the schema node is a scalar."""
     return schema_node.get(META_TYPES) is not None
 
+def is_empty(schema_node: dict) -> bool:
+    """Checks if the schema node is empty."""
+    items = schema_node.get(META_ITEMS, None)
+    if items != {}:
+        return False
+    if schema_node.get(META_FIELDS) is not None:
+        return False
+    if schema_node.get(META_TYPES) is not None:
+        return False
+    return True
+
 def build_template_node_from_schema_node(domain_schema_node: dict) -> dict:
     """Builds a dict template from a schema node."""
     template_node = {}
@@ -78,37 +90,86 @@ def build_template_node_from_schema_node(domain_schema_node: dict) -> dict:
             template_node[field_name] = inner_template
         elif is_scalar(child):
             template_node[field_name] = None
+        elif is_empty(child):
+            continue # skip empties
         else:
             raise ValueError(f"Invalid schema node: {child}")
     return template_node
 
 
-def build_template_from_schema(domain_schema: dict) -> dict:
-    """Builds a dict template from a schema."""
-    template = {}
-    for domain, domain_schema in domain_schema.items():
-        template[domain] = build_template_node_from_schema_node(domain_schema)
-    return template
 
+def standardize_domain_data_list(node: object, template: list) -> list:
+    """Standardizes a list of domain data."""
+    if node == []:
+        return []
+    if template == []:
+        if isinstance(node, list):
+            return list(node)
+        else:
+            return [node]
+    else:
+        if not isinstance(node, list):
+            node = [node]
+        item_template = template[0]
+        standardized = []
+        for item in node:
+            if isinstance(item, dict):
+                standardized.append(standardize_domain_data_node(item, item_template))
+            else:
+                standardized.append(item)
+    return standardized
 
+def standardize_domain_data_node(node: dict, template: dict) -> dict:
+    """Standardizes a node of domain data."""
+    standardized = {}
+    for key, value in template.items():
+        if key in node:
+            if isinstance(value, dict):
+                child = node.get(key)
+                if not isinstance(child, dict):
+                    first_key = next(iter(value))
+                    child = dict(value)
+                    child[first_key] = node.get(key)
+                standardized[key] = standardize_domain_data_node(child, value)
+            elif isinstance(value, list):
+                child = node.get(key)
+                if not isinstance(child, list):
+                    standardized[key] = standardize_domain_data_list([], value)
+                else:
+                    standardized[key] = standardize_domain_data_list(child, value)
+            else:
+                standardized[key] = node[key]
+        else:
+            standardized[key] = value
+    return standardized
 
-def standardize_domain_data(domain: str, domain_data: dict, schema: dict) -> dict:
+def standardize_domain_data(domain_data: dict, schema: dict, verbose: bool) -> dict:
     """Standardizes the data for a domain."""
     standardized = {}
-    for key in schema.keys():
+    template = build_template_node_from_schema_node(schema)
+    for guid, record in domain_data.items():
+        if verbose:
+            stdout.write(f"...standardizing record {guid}...\n")
+        standardized[guid] = standardize_domain_data_node(record, template)
+    return standardized
 
 
 
-
-def standardize_records(all_domains_data: dict) -> dict:
+def deploy_standardization(all_domains_data: dict, verbose: bool = False, testing: bool = False) -> dict:
     """Standardizes records by adding missing fields and coercing lists."""
     standardized_data = {
-        DOMAIN_DATA_KEY = {}
+        DOMAIN_DATA_KEY: {}
     }
-    schema = domain_data[META_KEY_FIELDS]
+    schema = all_domains_data[META_KEY_FIELDS]
     for domain, domain_data in all_domains_data[DOMAIN_DATA_KEY].items():
-        standardized_domain = standardize_domain_data(domain, domain_data, schema[domain])
+        if verbose:
+            stdout.write(f"Standardizing domain {domain}...\n")
+        standardized_domain = standardize_domain_data(domain_data, schema[domain], verbose)
         standardized_data[DOMAIN_DATA_KEY][domain] = standardized_domain
+        if verbose:
+            stdout.write("...done\n")
+        if testing:
+            break
     return standardized_data
 
 
@@ -116,6 +177,6 @@ def standardize_records(all_domains_data: dict) -> dict:
 if __name__ == "__main__":
     with open(ROOT_PATH / "domain_data.json", "r", encoding="utf-8") as file:
         loaded_domain_data = json.load(file)
-    standardized_data = standardize_records(loaded_domain_data)
+    standardized_all_domains = deploy_standardization(loaded_domain_data)#, verbose=True, testing=True)
     with open(WRITE_STANDARDIZED_DATA_PATH, "w", encoding="utf-8") as file:
-        json.dump(standardized_data, file, indent=4)
+        json.dump(standardized_all_domains, file, indent=4)
