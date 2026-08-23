@@ -1,4 +1,4 @@
-# pylint: disable=line-too-long, too-many-arguments
+# pylint: disable=line-too-long, too-many-arguments, no-else-return
 """
 Generates wiki-ready templates from domain data for storing by Cargo Mediawiki extension.
 
@@ -14,25 +14,37 @@ import re
 from sys import stdout
 from pathlib import Path
 
-from unity_compile_domain_data import classify_field_type
+from flatten_dict import flatten
 
 
 
 ROOT_PATH = Path(__file__).parent
-WRITE_CARGO_DATA_PATH = ROOT_PATH / "cargo_ready_domain_data.txt"
+WRITE_CARGO_DATA_PATH = ROOT_PATH / "cargo_ready_manifest.json"
 
 DOMAIN_DATA_KEY = "domains_data"
 
 META_KEY_PREFIX = "META_MANIFEST"
-META_KEY_PAGES = META_KEY_PREFIX + "_PAGES"
+META_KEY_TYPES = META_KEY_PREFIX + "_SEEN_TYPES"
 
-MANIFEST_KEY_PREFIX = "domains_manifests"
-MANIFEST_TEMPLATES_DECLARE = MANIFEST_KEY_PREFIX + "_declare_templates"
-MANIFEST_TEMPLATES_STORE = MANIFEST_KEY_PREFIX + "_store_templates"
-MANIFEST_DATA = MANIFEST_KEY_PREFIX + "_data"
-MANIFEST_PAGES = MANIFEST_KEY_PREFIX + "_data_pages"
+MANIFEST_DATA = "domains_manifests"
+MANIFEST_TEMPLATES_DECLARE = MANIFEST_DATA + "_declare_templates"
+MANIFEST_TEMPLATES_ATTACH = MANIFEST_DATA + "_attach_templates"
+MANIFEST_TEMPLATES_STORE = MANIFEST_DATA + "_store_templates"
+MANIFEST_RECORDS = MANIFEST_DATA + "_data"
 
-LIST_FIELD_TYPES = "seen_types"
+META_TYPE_NULL = "null"
+META_TYPE_BOOL = "Boolean"
+META_TYPE_INT = "Integer"
+META_TYPE_FLOAT = "Float"
+META_TYPE_FREEFORM_STRING = "Text"
+META_TYPE_INDEXED_STRING = "String"
+
+GUID_PATTERN = re.compile(r"([0-9a-f]{32})")
+UNIQUE_NAME_PATTERN = re.compile(r"m_Name")
+
+DISPLAY_NAME_SEARCHER = re.compile(r'\|displayName_key_en=(.*)')
+UNIQUE_NAME_SEARCHER = re.compile(r'\|m_Name=(.*)')
+
 FINAL_FIELD_TYPE = "type"
 
 PATH_JOIN_CHARACTER = "_"
@@ -40,53 +52,194 @@ PATH_JOIN_CHARACTER = "_"
 TEMPLATES_NAMESPACE = "Template"
 DATA_NAMESPACE = "Data"
 
-TESTING_ITERATION_LIMIT = 10
+TESTING_ITERATION_LIMIT = 3
 
 
 
-def handle_
 
 
 
-def build_domain_manifest(domain: str, domain_data: dict, manifest: dict, verbose: bool) -> dict:
-    """Builds the manifest for a domain."""
-    manifest[MANIFEST_TEMPLATES_DECLARE][domain] = {}
-    manifest[MANIFEST_TEMPLATES_STORE][domain] = {}
-    manifest[MANIFEST_DATA][domain] = {}
-    manifest[MANIFEST_PAGES][domain] = {}
-    template_fields = {}
-    later_key_queue = []
-    prototype = next(iter(domain_data))
-    for prototype_key in prototype.keys():
-        template_fields[prototype_key] = {
-            LIST_FIELD_TYPES: {}
-        }
-        for guid, record in domain_data.items():
-            if prototype_key not in record:
-                later_key_queue.append(prototype_key)
-                continue
-            field_type = classify_field_type(prototype_key, record[prototype_key])
-            template_fields[prototype_key][LIST_FIELD_TYPES].setdefault(field_type, []).append(guid)
+def convert_lists_to_dicts_node(node: object) -> dict:
+    """Converts lists to dictionaries in a node."""
+    if not isinstance(node, dict):
+        return node
+    for key, value in node.items():
+        if isinstance(value, list):
+            new_dict = {}
+            for i, item in enumerate(value):
+                new_dict[str(i+1)] = convert_lists_to_dicts_node(item)
+            node[key] = new_dict
+        elif isinstance(value, dict):
+            convert_lists_to_dicts_node(value)
+    return node
+
+def flatten_domain_data(domain_data: dict) -> dict:
+    """Flattens the domain data into a non-nested dictionary."""
+    flat = {}
+    for guid, record in domain_data.items():
+        only_dicts = convert_lists_to_dicts_node(record)
+        flattened = flatten(only_dicts, reducer="underscore", keep_empty_types=(dict, list,))
+        flat[guid] = flattened
+    return flat
+
+
+
+def classify_field_type(key: str, value: object) -> str:
+    """Classifies the field type based on the python type of the value."""
+    if value is None:
+        return META_TYPE_NULL
+    if isinstance(value, float):
+        return META_TYPE_FLOAT
+    if isinstance(value, (int, bool)):
+        return META_TYPE_INT
+    if isinstance(value, str):
+        if GUID_PATTERN.fullmatch(value) or UNIQUE_NAME_PATTERN.fullmatch(key):
+            return META_TYPE_INDEXED_STRING
+    return META_TYPE_FREEFORM_STRING
+
+
+
+def convert_field_to_template_parameter_line(field_name: str, field_value: object, manifest_domain_types: dict) -> str:
+    """Converts a field to a template parameter line."""
+    simplified_value = "" if field_value is None else field_value
+    line = f"|{field_name}={simplified_value}"
+    new_type = classify_field_type(field_name, field_value)
+    if field_name not in manifest_domain_types:
+        manifest_domain_types[field_name] = set()
+    manifest_domain_types[field_name].add(new_type)
+    return line
+
+
+
+def build_data_for_domain(domain: str, domain_data: dict, manifest: dict) -> dict:
+    """Builds the data-storing template calls for a domain."""
+    manifest_records = manifest[MANIFEST_DATA][MANIFEST_RECORDS]
+    manifest_records[domain] = {}
+    manifest[META_KEY_TYPES][domain] = {}
+    for guid, record in domain_data.items():
+        template_parameters = []
+        for key, value in record.items():
+            line = convert_field_to_template_parameter_line(key, value, manifest[META_KEY_TYPES][domain])
+            template_parameters.append(line)
+        manifest_records[domain][guid] = template_parameters
+
+
+def reduce_domain_types(types: set) -> str|list:
+    """Reduces the domain types to a single type."""
+    if len(types) == 1:
+        return list(types)[0]
+    else:
+        if META_TYPE_NULL in types and len(types) > 1:
+            types.discard(META_TYPE_NULL)
+        if META_TYPE_INT in types and META_TYPE_FLOAT in types:
+            types.discard(META_TYPE_INT)
+        if META_TYPE_INT in types and (META_TYPE_FREEFORM_STRING in types or META_TYPE_INDEXED_STRING in types):
+            types.discard(META_TYPE_INT)
+        if META_TYPE_FLOAT in types and (META_TYPE_FREEFORM_STRING in types or META_TYPE_INDEXED_STRING in types):
+            types.discard(META_TYPE_FLOAT)
+        if META_TYPE_INDEXED_STRING in types and META_TYPE_FREEFORM_STRING in types:
+            types.discard(META_TYPE_INDEXED_STRING)
+        if types:
+            if len(types) == 1:
+                return list(types)[0]
+            else:
+                return sorted(types)
+        else:
+            return META_TYPE_FREEFORM_STRING
+
+def build_declare_template_for_domain(domain: str, manifest_domain_types: dict) -> str:
+    """Builds the declare template for a domain."""
+    template = "{{#cargo_declare: "
+    template += f"_table={domain}"
+    parameters = [
+        "guid=" + META_TYPE_INDEXED_STRING
+    ]
+    for field_name, field_type in manifest_domain_types.items():
+        parameters.append(f"{field_name}={field_type}")
+    template += "|" + "|".join(parameters)
+    template += "}}"
+    return template
+
+def build_attach_template_for_domain(domain: str) -> str:
+    """Creates the attach parser function for a domain."""
+    return f"{{{{#cargo_attach: _table={domain}}}}}"
+
+def build_store_template_for_domain(domain: str, manifest_domain_types: dict) -> str:
+    """Builds the store template for a domain."""
+    template = "{{#cargo_store: "
+    template += f"_table={domain}"
+    parameters = [
+        "guid=" + "{{{" + "guid" + "|}}}"
+    ]
+    for field_name in manifest_domain_types.keys():
+        new_param = f"{field_name}="
+        new_param += "{{{"
+        new_param += field_name
+        new_param += "|}}}"
+        parameters.append(new_param)
+    template += "|" + "|".join(parameters)
+    template += "}}"
+    return template
+
+def finalize_record_as_template_markup(domain: str, guid: str, param_lines: list) -> str:
+    """Converts the list of parameters to one template call for the record."""
+    t_call = "{{" + domain
+    t_call += f"|guid={guid}"
+    t_call += "".join(param_lines)
+    t_call += "}}"
+    return t_call
+
+def finalize_domain_manifest(domain: str, manifest: dict) -> None:
+    """Finalizes the domain manifest."""
+    manifest_domain_types = manifest[META_KEY_TYPES][domain]
+    manifest_data = manifest[MANIFEST_DATA]
+    for field_name, field_types in manifest_domain_types.items():
+        field_types = manifest_domain_types[field_name]
+        manifest_domain_types[field_name] = reduce_domain_types(field_types)
+    manifest_data[MANIFEST_TEMPLATES_DECLARE][domain] = build_declare_template_for_domain(domain, manifest_domain_types)
+    manifest_data[MANIFEST_TEMPLATES_ATTACH][domain] = build_attach_template_for_domain(domain)
+    manifest_data[MANIFEST_TEMPLATES_STORE][domain] = build_store_template_for_domain(domain, manifest_domain_types)
+    for guid in list(manifest_data[MANIFEST_RECORDS][domain].keys()):
+        param_lines = manifest_data[MANIFEST_RECORDS][domain][guid]
+        display_name_match = None
+        unique_name_match = None
+        for line in param_lines:
+            if not display_name_match:
+                display_name_match = DISPLAY_NAME_SEARCHER.search(line)
+            if not unique_name_match:
+                unique_name_match = UNIQUE_NAME_SEARCHER.search(line)
+            if display_name_match and unique_name_match:
+                break
+        display_name = display_name_match.group(1) if display_name_match else None
+        unique_name = unique_name_match.group(1) if unique_name_match else guid
+        manifest_data[MANIFEST_RECORDS][domain][display_name if display_name else unique_name] = finalize_record_as_template_markup(domain, guid, param_lines)
+        manifest_data[MANIFEST_RECORDS][domain].pop(guid)
 
 
 
 def develop_cargo_manifest(all_domain_data: dict, verbose: bool = False, testing: bool = False) -> str:
     """Converts domain data and meta data into cargo-ready manifest."""
     manifest = {
-        META_KEY_PAGES: {},
-        MANIFEST_KEY_PREFIX: {
+        META_KEY_TYPES: {},
+        MANIFEST_DATA: {
             MANIFEST_TEMPLATES_DECLARE: {},
+            MANIFEST_TEMPLATES_ATTACH: {},
             MANIFEST_TEMPLATES_STORE: {},
-            MANIFEST_DATA: {},
-            MANIFEST_PAGES: {}
+            MANIFEST_RECORDS: {},
         }
     }
+    domain_number = 0
     for domain, domain_data in all_domain_data[DOMAIN_DATA_KEY].items():
-        if verbose:
-            stdout.write(f"Developing manifest for domain {domain}...\n")
-        build_domain_manifest(domain, domain_data, manifest, verbose, testing)
-        if testing and domain > TESTING_ITERATION_LIMIT:
+        domain_number += 1
+        if testing and domain_number > TESTING_ITERATION_LIMIT:
             break
+        if verbose:
+            stdout.write(f"Developing manifest for domain {domain} ({domain_number}/{len(all_domain_data[DOMAIN_DATA_KEY])})...\n")
+        flattened_domain_data = flatten_domain_data(domain_data)
+        build_data_for_domain(domain, flattened_domain_data, manifest)
+        finalize_domain_manifest(domain, manifest)
+        if verbose:
+            stdout.write(f"...done with {domain}\n")
     return manifest
 
 
@@ -94,7 +247,7 @@ def develop_cargo_manifest(all_domain_data: dict, verbose: bool = False, testing
 if __name__ == "__main__":
     with open(ROOT_PATH / "guid_index.json", "r", encoding="utf-8") as file:
         loaded_guid_index = json.load(file)
-    with open(ROOT_PATH / "domain_data.json", "r", encoding="utf-8") as file:
+    with open(ROOT_PATH / "standardized_domain_data.json", "r", encoding="utf-8") as file:
         loaded_domain_data = json.load(file)
     stdout.write("Developing domain data into cargo manifest...\n")
     cargo_manifest = develop_cargo_manifest(loaded_domain_data)#, verbose=True, testing=True)

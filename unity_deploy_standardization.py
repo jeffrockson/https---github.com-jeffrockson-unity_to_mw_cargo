@@ -71,38 +71,38 @@ def is_empty(schema_node: dict) -> bool:
         return False
     return True
 
-def build_template_node_from_schema_node(domain_schema_node: dict) -> dict:
-    """Builds a dict template from a schema node."""
-    template_node = {}
+def build_prototype_node_from_schema_node(domain_schema_node: dict) -> dict:
+    """Builds a dict prototype from a schema node."""
+    prototype_node = {}
     for field_name, child in domain_schema_node.items():
         if has_subtree_match(child):
-            inner_template = build_template_node_from_schema_node(child[META_FIELDS])
-            template_node[field_name] = [inner_template]
+            inner_prototype = build_prototype_node_from_schema_node(child[META_FIELDS])
+            prototype_node[field_name] = [inner_prototype]
         elif is_guid_list(child):
-            template_node[field_name] = []
+            prototype_node[field_name] = []
         elif is_list_of_dicts(child):
-            inner_template = build_template_node_from_schema_node(child[META_ITEMS][META_FIELDS])
-            template_node[field_name] = [inner_template]
+            inner_prototype = build_prototype_node_from_schema_node(child[META_ITEMS][META_FIELDS])
+            prototype_node[field_name] = [inner_prototype]
         elif is_list_of_scalars(child):
-            template_node[field_name] = []
+            prototype_node[field_name] = []
         elif is_dict(child):
-            inner_template = build_template_node_from_schema_node(child[META_FIELDS])
-            template_node[field_name] = inner_template
+            inner_prototype = build_prototype_node_from_schema_node(child[META_FIELDS])
+            prototype_node[field_name] = inner_prototype
         elif is_scalar(child):
-            template_node[field_name] = None
+            prototype_node[field_name] = None
         elif is_empty(child):
             continue # skip empties
         else:
             raise ValueError(f"Invalid schema node: {child}")
-    return template_node
+    return prototype_node
 
 
 
-def standardize_domain_data_list(node: object, template: list) -> list:
+def standardize_domain_data_list(node: object, prototype: list) -> list:
     """Standardizes a list of domain data."""
     if node == []:
         return []
-    if template == []:
+    if prototype == []:
         if isinstance(node, list):
             return list(node)
         else:
@@ -110,19 +110,19 @@ def standardize_domain_data_list(node: object, template: list) -> list:
     else:
         if not isinstance(node, list):
             node = [node]
-        item_template = template[0]
+        item_prototype = prototype[0]
         standardized = []
         for item in node:
             if isinstance(item, dict):
-                standardized.append(standardize_domain_data_node(item, item_template))
+                standardized.append(standardize_domain_data_node(item, item_prototype))
             else:
                 standardized.append(item)
     return standardized
 
-def standardize_domain_data_node(node: dict, template: dict) -> dict:
+def standardize_domain_data_node(node: dict, prototype: dict) -> dict:
     """Standardizes a node of domain data."""
     standardized = {}
-    for key, value in template.items():
+    for key, value in prototype.items():
         if key in node:
             if isinstance(value, dict):
                 child = node.get(key)
@@ -146,11 +146,11 @@ def standardize_domain_data_node(node: dict, template: dict) -> dict:
 def standardize_domain_data(domain_data: dict, schema: dict, verbose: bool) -> dict:
     """Standardizes the data for a domain."""
     standardized = {}
-    template = build_template_node_from_schema_node(schema)
+    prototype = build_prototype_node_from_schema_node(schema)
     for guid, record in domain_data.items():
         if verbose:
             stdout.write(f"...standardizing record {guid}...\n")
-        standardized[guid] = standardize_domain_data_node(record, template)
+        standardized[guid] = standardize_domain_data_node(record, prototype)
     return standardized
 
 
