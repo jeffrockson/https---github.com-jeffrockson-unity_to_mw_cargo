@@ -100,13 +100,16 @@ def classify_field_type(key: str, value: object) -> str:
 
 
 def convert_field_to_template_parameter_line(field_name: str, field_value: object, manifest_domain_types: dict) -> str:
-    """Converts a field to a template parameter line."""
-    simplified_value = "" if field_value is None else field_value
-    line = f"|{field_name}={simplified_value}"
+    """Converts a field to a template parameter line and saves its seen type."""
+    # first save the type
     new_type = classify_field_type(field_name, field_value)
     if field_name not in manifest_domain_types:
         manifest_domain_types[field_name] = set()
     manifest_domain_types[field_name].add(new_type)
+    # then convert the value
+    if field_value is None or field_value == "":
+        return None
+    line = f"|{field_name}={field_value}"
     return line
 
 
@@ -120,7 +123,8 @@ def build_data_for_domain(domain: str, domain_data: dict, manifest: dict) -> dic
         template_parameters = []
         for key, value in record.items():
             line = convert_field_to_template_parameter_line(key, value, manifest[META_KEY_TYPES][domain])
-            template_parameters.append(line)
+            if line is not None:
+                template_parameters.append(line)
         manifest_records[domain][guid] = template_parameters
 
 
@@ -152,7 +156,8 @@ def build_declare_template_for_domain(domain: str, manifest_domain_types: dict) 
     template = "{{#cargo_declare: "
     template += f"_table={domain}"
     parameters = [
-        "guid=" + META_TYPE_INDEXED_STRING
+        "page_name=" + META_TYPE_INDEXED_STRING,
+        "guid=" + META_TYPE_INDEXED_STRING,
     ]
     for field_name, field_type in manifest_domain_types.items():
         parameters.append(f"{field_name}={field_type}")
@@ -169,6 +174,7 @@ def build_store_template_for_domain(domain: str, manifest_domain_types: dict) ->
     template = "{{#cargo_store: "
     template += f"_table={domain}"
     parameters = [
+        "page_name=" + "{{{" + "page_name" + "|}}}"
         "guid=" + "{{{" + "guid" + "|}}}"
     ]
     for field_name in manifest_domain_types.keys():
