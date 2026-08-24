@@ -1,7 +1,6 @@
 """
 Orchestrates conversion of AssetRipper extracted project to cargo-query-ready mediawiki data.
 """
-import json
 from pathlib import Path
 
 from unity_assemble_guid_index import assemble_guid_index
@@ -29,5 +28,3 @@ if __name__ == "__main__":
     cargo_manifest = extract_cargo_manifest(standardized)
     wiki_content = format_wiki_pages(cargo_manifest)
     go_bot_upload(wiki_content)
-    with open(ROOT_PATH / "cargo_manifest.json", "w", encoding="utf-8") as cargo_manifest_file:
-        json.dump(cargo_manifest, cargo_manifest_file, indent=4)
