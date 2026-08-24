@@ -1,12 +1,16 @@
 /Assets
-/cargo_ready_domain_data.txt
-/domain_data.json
-/guid_index.json
-/model_registry.json
 /Packages
 /ProjectSettings
 /zPy Archive
-/__pycache__
+/**/__pycache__/
+/apicache
+cargo_ready_domain_data.txt
+domain_data.json
+guid_index.json
+model_registry.json
 standardized_domain_data.json
 cargo_ready_manifest.json
 pages_wiki_content.json
+user-password.cfg
+pywikibot*.lwp
+throttle.ctrl

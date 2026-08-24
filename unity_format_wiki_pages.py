@@ -63,9 +63,14 @@ def clarify_template_call(domain: str, key: str, record: str) -> str:
 def paginate_domain_records(domain: str, records: dict) -> list:
     """Paginate the domain records."""
     pages = []
-    page_number = 0
-    current_page_size = float("inf")
-    current_page = {}
+    page_number = 1
+    page_title = DATA_NAMESPACE + NAMESPACE_SEPARATOR + domain + PAGE_NAME_SEPARATOR + str(page_number)
+    current_page = {
+        CONTENT_PAGES_NAMESPACE_KEY: DATA_NAMESPACE,
+        CONTENT_PAGES_TITLE_KEY: page_title,
+        CONTENT_PAGES_CONTENT_KEY: AUTO_CONTENT_NOTE + "\n"
+    }
+    current_page_size = 0
     for key, record in records.items():
         size_bytes = len(record.encode("utf-8")) + 11 # 11 for newlines and "Dataloader" prefix
         if current_page_size + size_bytes > MAX_PAGE_BYTES:

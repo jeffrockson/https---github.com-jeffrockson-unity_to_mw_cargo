@@ -240,16 +240,16 @@ def process_global_renames_node(node: object, config_renames: dict) -> object:
 
 
 
-def develop_cargo_manifest(all_domain_data: dict, verbose: bool = False, testing: bool = False) -> str:
+def extract_cargo_manifest(standardized_domain_data: dict, verbose: bool = False, testing: bool = False) -> str:
     """Converts domain data and meta data into cargo-ready manifest."""
     with open(IN_CONFIG_PATH, "r", encoding="utf-8") as config_file:
         config_data = json.load(config_file)
     config_renames = config_data[CONFIG_RENAME_KEY]
-    for domain in list(all_domain_data[DOMAIN_DATA_KEY].keys()):
-        domain_data = all_domain_data[DOMAIN_DATA_KEY][domain]
+    for domain in list(standardized_domain_data[DOMAIN_DATA_KEY].keys()):
+        domain_data = standardized_domain_data[DOMAIN_DATA_KEY][domain]
         domain_data = process_global_renames_node(domain_data, config_renames)
         if domain in config_renames:
-            all_domain_data[DOMAIN_DATA_KEY][config_renames[domain]] = all_domain_data[DOMAIN_DATA_KEY].pop(domain)
+            standardized_domain_data[DOMAIN_DATA_KEY][config_renames[domain]] = standardized_domain_data[DOMAIN_DATA_KEY].pop(domain)
     manifest = {
         META_KEY_TYPES: {},
         MANIFEST_DATA: {
@@ -260,12 +260,12 @@ def develop_cargo_manifest(all_domain_data: dict, verbose: bool = False, testing
         }
     }
     domain_number = 0
-    for domain, domain_data in all_domain_data[DOMAIN_DATA_KEY].items():
+    for domain, domain_data in standardized_domain_data[DOMAIN_DATA_KEY].items():
         domain_number += 1
         if testing and domain_number > TESTING_ITERATION_LIMIT:
             break
         if verbose:
-            stdout.write(f"Developing manifest for domain {domain} ({domain_number}/{len(all_domain_data[DOMAIN_DATA_KEY])})...\n")
+            stdout.write(f"Developing manifest for domain {domain} ({domain_number}/{len(standardized_domain_data[DOMAIN_DATA_KEY])})...\n")
         flattened_domain_data = flatten_domain_data(domain_data)
         build_data_for_domain(domain, flattened_domain_data, manifest)
         finalize_domain_manifest(domain, manifest)
@@ -281,7 +281,7 @@ if __name__ == "__main__":
     with open(ROOT_PATH / "standardized_domain_data.json", "r", encoding="utf-8") as file:
         loaded_domain_data = json.load(file)
     stdout.write("Developing domain data into cargo manifest...\n")
-    cargo_manifest = develop_cargo_manifest(loaded_domain_data)#, verbose=True, testing=True)
+    cargo_manifest = extract_cargo_manifest(loaded_domain_data)#, verbose=True, testing=True)
     with open(WRITE_CARGO_DATA_PATH, "w", encoding="utf-8") as file:
         json.dump(cargo_manifest, file, indent=4)
     stdout.write("...done saving cargo-ready data.\n")
