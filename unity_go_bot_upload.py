@@ -9,9 +9,13 @@ import json
 import os
 from pathlib import Path
 from sys import stdout
+
+import subprocess
 import pywikibot
 
 
+
+MEDIAWIKI_PATH = Path("C:/tools/mediawiki-1.44.2")
 
 ROOT_PATH = Path(__file__).parent
 
@@ -21,6 +25,8 @@ CONTENT_PAGES_CONTENT_KEY = "contents"
 
 TEMPLATE_NAMESPACE = "Template"
 DATA_NAMESPACE = "Data"
+
+TEMPLATE_NAME = "Dataloader"
 
 EDIT_SUMMARY = "Automated data import from unity_to_mw_cargo"
 
@@ -37,23 +43,22 @@ def connect_site() -> pywikibot.Site:
 
 
 
+# pylint: disable=unused-argument
 def upload_page(site: pywikibot.Site, title: str, content: str, verbose: bool, dry_run: bool = False) -> None:
     """Uploads a single page to the wiki."""
-    pywikibot.config.verbose_output = verbose
     page = pywikibot.Page(site, title)
     page.text = content
     if dry_run:
         stdout.write(f"[DRY RUN] Would upload: {title}\n")
         return
-    page.save(summary=EDIT_SUMMARY, minor=False)
+    page.save(summary=EDIT_SUMMARY, minor=False, quiet=True)
 
 
 
-# pylint: disable=unused-argument
 def upload_by_namespace(site: pywikibot.Site, namespace: str, pages: list, verbose: bool, testing: bool, dry_run: bool) -> None:
     """Uploads all pages in a namespace to the wiki."""
     if verbose:
-        stdout.write(f"Uploading namespace {namespace} pages...\n")
+        stdout.write(f"Uploading {namespace} namespace pages...\n")
     for i, page in enumerate(pages):
         if testing and i >= TESTING_PAGE_LIMIT:
             break
@@ -62,16 +67,15 @@ def upload_by_namespace(site: pywikibot.Site, namespace: str, pages: list, verbo
         if not title.startswith(namespace + ":"):
             continue
         if verbose:
-            stdout.write(f"...uploading {title} ({i+1} of {len(pages)})...")
+            stdout.write(f"...uploading {title} ({i+1} of {len(pages)})...\n")
         upload_page(site, title, content, verbose, dry_run=dry_run)
     if verbose:
-        stdout.write(f"...done with namespace {namespace}.\n")
+        stdout.write(f"...done with {namespace} namespace.\n")
 
 
 
-def recreate_cargo_tables(site: pywikibot.Site, pages: list, verbose: bool, testing: bool, dry_run: bool) -> None:
+def rerun_cargo_table_maintenance(site: pywikibot.Site, pages: list, verbose: bool, testing: bool, dry_run: bool) -> None:
     """Triggers Cargo to create tables for all template pages."""
-    pywikibot.config.verbose_output = verbose
     if verbose:
         stdout.write("(Re)creating cargo tables...\n")
     for i, page in enumerate(pages):
@@ -85,9 +89,17 @@ def recreate_cargo_tables(site: pywikibot.Site, pages: list, verbose: bool, test
             continue
         if verbose:
             stdout.write(f"...recreating cargo table for: {title}...\n")
-        template_name = title.removeprefix(TEMPLATE_NAMESPACE + ":")
-        token = site.tokens["csrf"]
-        site.simple_request(action="cargorecreatetables", template=template_name, token=token).submit()
+        table_name = title.removeprefix(TEMPLATE_NAMESPACE + ":" + TEMPLATE_NAME + "/")
+        subprocess.run(
+            ["php", "maintenance/run.php", "Cargo:cargoRecreateData", "--table", table_name, "--quiet"],
+            cwd=MEDIAWIKI_PATH,
+            check=True,
+        )
+    subprocess.run(
+        ["php", "maintenance/run.php", "runJobs"],
+        cwd=MEDIAWIKI_PATH,
+        check=True,
+    )
     if verbose:
         stdout.write("...done with cargo tables.\n")
 
@@ -96,10 +108,10 @@ def recreate_cargo_tables(site: pywikibot.Site, pages: list, verbose: bool, test
 def go_bot_upload(pages: list, verbose: bool = False, testing: bool = False, dry_run: bool = False) -> None:
     """Uploads all pages to the wiki."""
     site = connect_site()
-    upload_by_namespace(site, TEMPLATE_NAMESPACE, pages, verbose, testing, dry_run)
-    recreate_cargo_tables(site, pages, verbose, testing, dry_run)
-    site.simple_request(action="runJobs").submit()
+    # upload_by_namespace(site, TEMPLATE_NAMESPACE, pages, verbose, testing, dry_run)
+    # rerun_cargo_table_maintenance(site, pages, verbose, testing, dry_run)
     upload_by_namespace(site, DATA_NAMESPACE, pages, verbose, testing, dry_run)
+    rerun_cargo_table_maintenance(site, pages, verbose, testing, dry_run)
 
 
 
@@ -107,6 +119,6 @@ if __name__ == "__main__":
     with open(ROOT_PATH / "pages_wiki_content.json", "r", encoding="utf-8") as file:
         loaded_pages = json.load(file)
     all_pages = loaded_pages[CONTENT_PAGES_KEY]
-    stdout.write(f"Uploading {len(all_pages)*3} pages to the wiki...\n")
-    go_bot_upload(all_pages, verbose=False, testing=False, dry_run=False)
+    stdout.write(f"Uploading {len(all_pages)*2} pages to the wiki...\n")
+    go_bot_upload(all_pages, verbose=True, testing=False, dry_run=False)
     stdout.write("...done.\n")

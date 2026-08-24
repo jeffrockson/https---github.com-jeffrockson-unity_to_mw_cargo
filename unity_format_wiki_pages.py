@@ -55,7 +55,7 @@ def clarify_template_call(domain: str, key: str, record: str) -> str:
     """Splits the record and reformats the template name."""
     # pylint: disable=unused-variable
     prefix, remainder = record.split("|", 1)
-    template_call = "{{" + TEMPLATE_PAGE_NAME + NAMESPACE_SEPARATOR + domain
+    template_call = "{{" + TEMPLATE_PAGE_NAME + PAGE_NAME_SEPARATOR + domain
     template_call += "|page_name=" + key
     template_call += "|" + remainder
     return template_call

@@ -20,6 +20,7 @@ REGISTRY_ASSET_PATHS = [
 ]
 
 
+
 if __name__ == "__main__":
     guid_index = assemble_guid_index()
     model_registry = build_model_registry(REGISTRY_ASSET_PATHS, guid_index)
@@ -27,4 +28,4 @@ if __name__ == "__main__":
     standardized = deploy_standardization(domain_data)
     cargo_manifest = extract_cargo_manifest(standardized)
     wiki_content = format_wiki_pages(cargo_manifest)
-    go_bot_upload(wiki_content)
+    go_bot_upload(wiki_content, verbose=True)
