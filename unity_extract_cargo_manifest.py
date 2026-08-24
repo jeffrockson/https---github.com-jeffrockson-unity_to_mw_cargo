@@ -19,7 +19,10 @@ from flatten_dict import flatten
 
 
 ROOT_PATH = Path(__file__).parent
+IN_CONFIG_PATH = ROOT_PATH / "unity_setup_domain_config.json"
 WRITE_CARGO_DATA_PATH = ROOT_PATH / "cargo_ready_manifest.json"
+
+CONFIG_RENAME_KEY = "global_rename"
 
 DOMAIN_DATA_KEY = "domains_data"
 
@@ -53,9 +56,6 @@ TEMPLATES_NAMESPACE = "Template"
 DATA_NAMESPACE = "Data"
 
 TESTING_ITERATION_LIMIT = 3
-
-
-
 
 
 
@@ -153,7 +153,7 @@ def reduce_domain_types(types: set) -> str|list:
 
 def build_declare_template_for_domain(domain: str, manifest_domain_types: dict) -> str:
     """Builds the declare template for a domain."""
-    template = "{{#cargo_declare: "
+    template = "{{#cargo_declare:"
     template += f"_table={domain}"
     parameters = [
         "page_name=" + META_TYPE_INDEXED_STRING,
@@ -171,7 +171,7 @@ def build_attach_template_for_domain(domain: str) -> str:
 
 def build_store_template_for_domain(domain: str, manifest_domain_types: dict) -> str:
     """Builds the store template for a domain."""
-    template = "{{#cargo_store: "
+    template = "{{#cargo_store:"
     template += f"_table={domain}"
     parameters = [
         "page_name=" + "{{{" + "page_name" + "|}}}"
@@ -223,8 +223,33 @@ def finalize_domain_manifest(domain: str, manifest: dict) -> None:
 
 
 
+def process_global_renames_node(node: object, config_renames: dict) -> object:
+    """Processes the global renames for a node."""
+    if isinstance(node, dict):
+        for key in list(node.keys()):
+            value = node[key]
+            if key in config_renames:
+                configured_key = config_renames[key]
+                node[configured_key] = node.pop(key)
+                key = configured_key
+            node[key] = process_global_renames_node(value, config_renames)
+    elif isinstance(node, list):
+        for i, item in enumerate(node):
+            node[i] = process_global_renames_node(item, config_renames)
+    return node
+
+
+
 def develop_cargo_manifest(all_domain_data: dict, verbose: bool = False, testing: bool = False) -> str:
     """Converts domain data and meta data into cargo-ready manifest."""
+    with open(IN_CONFIG_PATH, "r", encoding="utf-8") as config_file:
+        config_data = json.load(config_file)
+    config_renames = config_data[CONFIG_RENAME_KEY]
+    for domain in list(all_domain_data[DOMAIN_DATA_KEY].keys()):
+        domain_data = all_domain_data[DOMAIN_DATA_KEY][domain]
+        domain_data = process_global_renames_node(domain_data, config_renames)
+        if domain in config_renames:
+            all_domain_data[DOMAIN_DATA_KEY][config_renames[domain]] = all_domain_data[DOMAIN_DATA_KEY].pop(domain)
     manifest = {
         META_KEY_TYPES: {},
         MANIFEST_DATA: {

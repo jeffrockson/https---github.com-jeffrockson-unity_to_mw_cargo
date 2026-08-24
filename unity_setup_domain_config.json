@@ -1,4 +1,11 @@
 {
+  "global_rename": {
+    "order": "sort_order",
+    "goals": "deeds"
+  },
+
+
+
   "all_domains": {
     "exclude": [
       "m_ObjectHideFlags",
