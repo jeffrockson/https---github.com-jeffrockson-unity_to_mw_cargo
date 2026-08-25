@@ -14,6 +14,7 @@ from unity_helper_merge_config import merge_config
 
 
 ROOT_PATH = Path(__file__).parent
+READ_CONFIG_PATH = ROOT_PATH / "unity_setup_domain_config.json"
 READ_ENGLISH_STRINGS_PATH = ROOT_PATH / "Assets" / "Resources" / "texts" / "en.json"
 WRITE_DOMAIN_DATA_PATH = ROOT_PATH / "domain_data.json"
 
@@ -42,6 +43,14 @@ DATA_KEY = "domains_data"
 
 CONFIG_EXCLUDE_KEY = "exclude"
 CONFIG_EXPAND_KEY = "expand"
+CONFIG_SEPARATE_KEY = "separate"
+SEPARATE_GUID_PREFIX = "guid_prefix"
+SEPARATE_DOMAIN = "domain"
+CONFIG_DEDUPE_KEY= "deduplication"
+DEDUPE_KEEP = "keep"
+DEDUPE_REMOVE = "remove"
+DEDUPE_DOMAIN = "domain"
+DEDUPE_KEY = "key"
 
 GUID_PATTERN = re.compile(r"([0-9a-f]{32})")
 UNIQUE_NAME_PATTERN = re.compile(r"m_Name")
@@ -335,6 +344,68 @@ def expand_domain(domain_config: dict, domain_model_registry: dict, guid_index: 
 
 
 
+def run_deduplication(all_config: dict, domain_data: dict, verbose: bool) -> None:
+    """Runs the deduplication process."""
+    deduplication_config = all_config[CONFIG_DEDUPE_KEY]
+    removed_records = 0
+    for dedupe_pair in deduplication_config:
+        keep_domain = dedupe_pair[DEDUPE_KEEP][DEDUPE_DOMAIN]
+        keep_key = dedupe_pair[DEDUPE_KEEP][DEDUPE_KEY]
+        remove_domain = dedupe_pair[DEDUPE_REMOVE][DEDUPE_DOMAIN]
+        remove_key = dedupe_pair[DEDUPE_REMOVE][DEDUPE_KEY]
+        keep_keys = set()
+        if keep_domain not in domain_data or remove_domain not in domain_data:
+            continue
+        for keep_record in domain_data[keep_domain].values():
+            if keep_key in keep_record:
+                keep_keys.add(keep_record[keep_key])
+        for guid in list(domain_data[remove_domain].keys()):
+            if remove_key in domain_data[remove_domain][guid]:
+                remove_value = domain_data[remove_domain][guid][remove_key]
+                if remove_value in keep_keys:
+                    del domain_data[remove_domain][guid]
+                    removed_records += 1
+    if verbose:
+        stdout.write(f"...removed {removed_records} duplicate records...\n")
+
+
+
+def synthesize_new_guid(guid_prefix: str, parent_guid: str) -> str:
+    """Synthesizes a new guid based on the guid prefix and parent guid."""
+    borrow_length = len(parent_guid) - len(guid_prefix)
+    new_guid = guid_prefix + parent_guid[:borrow_length]
+    return new_guid
+
+def run_domain_separation(all_config: dict, all_domain_data: dict, verbose: bool) -> None:
+    """Runs the domain separation process on records."""
+    moved_records = 0
+    for domain in list(all_domain_data.keys()):
+        if domain not in all_config:
+            continue
+        domain_data = all_domain_data[domain]
+        domain_config = all_config[domain]
+        if CONFIG_SEPARATE_KEY not in domain_config:
+            continue
+        for guid, record in domain_data.items():
+            for separate_key, separation_rule in domain_config[CONFIG_SEPARATE_KEY].items():
+                if separate_key not in record:
+                    continue
+                if record[separate_key] is None or record[separate_key] == {} or record[separate_key] == [] or record[separate_key] == "":
+                    continue
+                subrecord_to_move = record.pop(separate_key)
+                synthetic_guid = synthesize_new_guid(separation_rule[SEPARATE_GUID_PREFIX], guid)
+                record[separate_key] = synthetic_guid
+                target_domain = separation_rule[SEPARATE_DOMAIN]
+                if target_domain not in all_domain_data:
+                    all_domain_data[target_domain] = {}
+                subrecord_to_move = { separate_key: subrecord_to_move }
+                all_domain_data[target_domain][synthetic_guid] = subrecord_to_move
+                moved_records += 1
+    if verbose:
+        stdout.write(f"...separated {moved_records} records...\n")
+
+
+
 def compile_domain_data(model_registry: dict, guid_index: dict, en_strings: dict|None = None, verbose: bool = False, testing: bool = False) -> dict:
     """Compile domain data from the model registry and guid index."""
     domain_data = {
@@ -342,6 +413,8 @@ def compile_domain_data(model_registry: dict, guid_index: dict, en_strings: dict
         META_KEY_GUID_REF_INDEX: {},
         DATA_KEY: {},
     }
+    with open(READ_CONFIG_PATH, "r", encoding="utf-8") as config_file:
+        all_config = json.load(config_file)
     if en_strings is None:
         with open(READ_ENGLISH_STRINGS_PATH, "r", encoding="utf-8") as strings_file:
             en_strings = json.load(strings_file)
@@ -352,24 +425,28 @@ def compile_domain_data(model_registry: dict, guid_index: dict, en_strings: dict
         domain_number += 1
         if verbose:
             stdout.write(f"...gathering data for domain {domain} ({domain_number}/{len(model_registry[MODEL_KEY])})...\n")
-        domain_config = merge_config(domain)
-        domain_data[DATA_KEY][domain] = expand_domain(domain_config, model_registry[MODEL_KEY][domain], guid_index, en_strings, verbose, testing)
-        domain_data[META_KEY_FIELDS][domain] = register_domain_fields(domain_data[DATA_KEY][domain])
+        domain_config = merge_config(all_config, domain)
+        domain_data[DATA_KEY][domain] = expand_domain(domain_config, model_registry[MODEL_KEY][domain], guid_index, en_strings, verbose=False, testing=False)
         if verbose:
             stdout.write(f"...finished processing domain {domain}...\n")
         if testing and domain_number > TESTING_ITERATION_LIMIT:
             break
+    run_deduplication(all_config, domain_data[DATA_KEY], verbose)
+    run_domain_separation(all_config, domain_data[DATA_KEY], verbose)
+    for domain in list(domain_data[DATA_KEY].keys()):
+        domain_data[META_KEY_FIELDS][domain] = register_domain_fields(domain_data[DATA_KEY][domain])
     domain_data[META_KEY_GUID_REF_INDEX] = register_references(domain_data[DATA_KEY])
     return domain_data
 
-#^        "tags"
+
 
 if __name__ == "__main__":
     with open(ROOT_PATH / "guid_index.json", "r", encoding="utf-8") as file:
         loaded_guid_index = json.load(file)
     with open(ROOT_PATH / "model_registry.json", "r", encoding="utf-8") as file:
         loaded_model_registry = json.load(file)
-    result = compile_domain_data(loaded_model_registry, loaded_guid_index)#, verbose=True, testing=True)
-    # pylint: disable=invalid-name
+    stdout.write("Compiling domain data...")
+    result = compile_domain_data(loaded_model_registry, loaded_guid_index, verbose=True, testing=False)
+    stdout.write("...done.\n")
     with open(WRITE_DOMAIN_DATA_PATH, "w", encoding="utf-8") as file:
         json.dump(result, file, indent=4)

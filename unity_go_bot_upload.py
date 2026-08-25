@@ -108,8 +108,8 @@ def rerun_cargo_table_maintenance(site: pywikibot.Site, pages: list, verbose: bo
 def go_bot_upload(pages: list, verbose: bool = False, testing: bool = False, dry_run: bool = False) -> None:
     """Uploads all pages to the wiki."""
     site = connect_site()
-    # upload_by_namespace(site, TEMPLATE_NAMESPACE, pages, verbose, testing, dry_run)
-    # rerun_cargo_table_maintenance(site, pages, verbose, testing, dry_run)
+    upload_by_namespace(site, TEMPLATE_NAMESPACE, pages, verbose, testing, dry_run)
+    rerun_cargo_table_maintenance(site, pages, verbose, testing, dry_run)
     upload_by_namespace(site, DATA_NAMESPACE, pages, verbose, testing, dry_run)
     rerun_cargo_table_maintenance(site, pages, verbose, testing, dry_run)
 

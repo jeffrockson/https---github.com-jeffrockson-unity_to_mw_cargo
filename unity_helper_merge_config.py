@@ -1,4 +1,4 @@
-# pylint: disable=line-too-long
+# pylint: disable=line-too-long, no-else-return
 """
 Merge configurations for all domains with the selected domain from the unity domain config.
 """
@@ -14,6 +14,7 @@ READ_DOMAIN_CONFIGURATION_PATH = ROOT_PATH / "unity_setup_domain_config.json"
 ALL_DOMAINS_KEY = "all_domains"
 EXCLUDE_KEY = "exclude"
 EXPAND_KEY = "expand"
+SEPARATE_KEY = "separate"
 
 
 
@@ -50,21 +51,24 @@ def merge_domain(domain_config: dict, all_config) -> dict:
     merged_domain_config = {}
     merged_domain_config[EXCLUDE_KEY] = merge_exclude_list(domain_config.get(EXCLUDE_KEY, []), all_config.get(EXCLUDE_KEY, []))
     merged_domain_config[EXPAND_KEY] = merge_expand_dict(domain_config.get(EXPAND_KEY, {}), all_config.get(EXPAND_KEY, {}))
+    if SEPARATE_KEY in domain_config:
+        merged_domain_config[SEPARATE_KEY] = domain_config[SEPARATE_KEY]
     return merged_domain_config
 
 
 
-def merge_config(domain: str) -> dict:
+def merge_config(all_config: dict|None, domain: str) -> dict:
     """Returns one configuration set for the specified domain."""
-    with open(READ_DOMAIN_CONFIGURATION_PATH, "r", encoding="utf-8") as file:
-        all_domains_configuration = json.load(file)
-    if domain in all_domains_configuration:
-        return merge_domain(all_domains_configuration[domain], all_domains_configuration[ALL_DOMAINS_KEY])
+    if all_config is None:
+        with open(READ_DOMAIN_CONFIGURATION_PATH, "r", encoding="utf-8") as file:
+            all_config = json.load(file)
+    if domain in all_config:
+        return merge_domain(all_config[domain], all_config[ALL_DOMAINS_KEY])
     else:
-        return all_domains_configuration[ALL_DOMAINS_KEY]
+        return all_config[ALL_DOMAINS_KEY]
 
 
 
 if __name__ == "__main__":
-    result = merge_config("goals")
+    result = merge_config(None, "goals")
     stdout.write(json.dumps(result, indent=4) + "\n")

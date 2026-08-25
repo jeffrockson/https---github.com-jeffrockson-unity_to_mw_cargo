@@ -1,4 +1,25 @@
 {
+  "comment": {
+    "Game": "Against the Storm"
+  },
+
+
+
+  "deduplication": [
+    {
+      "keep": {
+        "domain": "Relics",
+        "key": "m_Name"
+      },
+      "remove": {
+        "domain": "Buildings",
+        "key": "m_Name"
+      }
+    }
+  ],
+
+
+
   "global_rename": {
     "order": "sort_order",
     "interval": "time_interval",
@@ -132,6 +153,12 @@
       "aggregationTag": [
         "m_Name"
       ]
+    },
+    "separate": {
+      "expeditions": {
+        "domain": "buildingExpeditions",
+        "guid_prefix": "cafecafe"
+      }
     }
   },
 
@@ -182,7 +209,13 @@
       "replaces",
       "ruin"
     ],
-    "expand": []
+    "expand": {
+      "displayLabel": [
+        "m_Name",
+        "displayName",
+        "key"
+      ]
+    }
   },
 
   "workshops": {

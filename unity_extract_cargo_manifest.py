@@ -174,8 +174,8 @@ def build_store_template_for_domain(domain: str, manifest_domain_types: dict) ->
     template = "{{#cargo_store:"
     template += f"_table={domain}"
     parameters = [
-        "page_name=" + "{{{" + "page_name" + "|}}}"
-        "guid=" + "{{{" + "guid" + "|}}}"
+        "page_name=" + "{{{" + "page_name" + "|}}}",
+        "guid=" + "{{{" + "guid" + "|}}}",
     ]
     for field_name in manifest_domain_types.keys():
         new_param = f"{field_name}="
@@ -217,9 +217,11 @@ def finalize_domain_manifest(domain: str, manifest: dict) -> None:
             if display_name_match and unique_name_match:
                 break
         display_name = display_name_match.group(1) if display_name_match else None
-        unique_name = unique_name_match.group(1) if unique_name_match else guid
-        manifest_data[MANIFEST_RECORDS][domain][display_name if display_name else unique_name] = finalize_record_as_template_markup(domain, guid, param_lines)
-        manifest_data[MANIFEST_RECORDS][domain].pop(guid)
+        unique_name = unique_name_match.group(1) if unique_name_match else None
+        page_key = display_name if display_name else unique_name if unique_name else guid
+        manifest_data[MANIFEST_RECORDS][domain][page_key] = finalize_record_as_template_markup(domain, guid, param_lines)
+        if page_key != guid:
+            manifest_data[MANIFEST_RECORDS][domain].pop(guid)
 
 
 
