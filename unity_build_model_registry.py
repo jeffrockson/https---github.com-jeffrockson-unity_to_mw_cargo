@@ -216,6 +216,7 @@ def build_model_registry(registry_assets_paths: list, verbose: bool = False, tes
         if testing and asset_number > TESTING_ITERATION_LIMIT:
             break
         build_registry_from_asset(registry_asset_path, registry, verbose)
+    stdout.write(f"...finished building model registry from {asset_number} assets.\n")
     return registry
 
 

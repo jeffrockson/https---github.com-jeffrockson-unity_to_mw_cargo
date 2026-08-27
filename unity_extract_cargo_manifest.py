@@ -33,6 +33,7 @@ MANIFEST_DATA = "domains_manifests"
 MANIFEST_TEMPLATES_DECLARE = MANIFEST_DATA + "_declare_templates"
 MANIFEST_TEMPLATES_ATTACH = MANIFEST_DATA + "_attach_templates"
 MANIFEST_TEMPLATES_STORE = MANIFEST_DATA + "_store_templates"
+MANIFEST_QUERIES = MANIFEST_DATA + "_queries"
 MANIFEST_RECORDS = MANIFEST_DATA + "_data"
 
 META_TYPE_NULL = "null"
@@ -56,6 +57,19 @@ TEMPLATES_NAMESPACE = "Template"
 DATA_NAMESPACE = "Data"
 
 TESTING_ITERATION_LIMIT = 3
+
+
+
+def generate_query_copyblock(domain: str, manifest_domain_types: dict) -> str:
+    """Generates the query copyblock for a domain."""
+    query = "{{#cargo_query:"
+    query += "|table=" + domain
+    query += "|fields=page_name, guid, " + ", ".join(manifest_domain_types.keys())
+    query += "|limit=999999"
+    query += "|named args=yes"
+    query += "|format=table"
+    query += "}}"
+    return query
 
 
 
@@ -126,6 +140,7 @@ def build_data_for_domain(domain: str, domain_data: dict, manifest: dict) -> dic
             if line is not None:
                 template_parameters.append(line)
         manifest_records[domain][guid] = template_parameters
+
 
 
 def reduce_domain_types(types: set) -> str|list:
@@ -222,6 +237,7 @@ def finalize_domain_manifest(domain: str, manifest: dict) -> None:
         manifest_data[MANIFEST_RECORDS][domain][page_key] = finalize_record_as_template_markup(domain, guid, param_lines)
         if page_key != guid:
             manifest_data[MANIFEST_RECORDS][domain].pop(guid)
+    manifest_data[MANIFEST_QUERIES][domain] = generate_query_copyblock(domain, manifest_domain_types)
 
 
 
@@ -258,6 +274,7 @@ def extract_cargo_manifest(standardized_domain_data: dict, verbose: bool = False
             MANIFEST_TEMPLATES_DECLARE: {},
             MANIFEST_TEMPLATES_ATTACH: {},
             MANIFEST_TEMPLATES_STORE: {},
+            MANIFEST_QUERIES: {},
             MANIFEST_RECORDS: {},
         }
     }
@@ -273,6 +290,7 @@ def extract_cargo_manifest(standardized_domain_data: dict, verbose: bool = False
         finalize_domain_manifest(domain, manifest)
         if verbose:
             stdout.write(f"...done with {domain}\n")
+    stdout.write(f"...finished developing manifest for {domain_number} domains...\n")
     return manifest
 
 

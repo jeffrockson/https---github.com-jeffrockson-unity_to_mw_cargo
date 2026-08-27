@@ -129,6 +129,7 @@ def format_wiki_pages(cargo_manifest: dict, verbose: bool = False, testing: bool
         pages_content[CONTENT_PAGES_KEY].extend(domain_pages)
         if verbose:
             stdout.write("...done\n")
+    stdout.write(f"...finished formatting pages for {domain_number} domains...\n")
     return pages_content
 
 

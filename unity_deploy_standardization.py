@@ -170,6 +170,7 @@ def deploy_standardization(all_domains_data: dict, verbose: bool = False, testin
             stdout.write("...done\n")
         if testing:
             break
+    stdout.write(f"...finished standardizing {len(standardized_data[DOMAIN_DATA_KEY])} domains...\n")
     return standardized_data
 
 

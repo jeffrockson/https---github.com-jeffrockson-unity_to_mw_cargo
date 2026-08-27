@@ -105,20 +105,20 @@ def rerun_cargo_table_maintenance(site: pywikibot.Site, pages: list, verbose: bo
 
 
 
-def go_bot_upload(pages: list, verbose: bool = False, testing: bool = False, dry_run: bool = False) -> None:
+def go_bot_upload(wiki_content: dict, verbose: bool = False, testing: bool = False, dry_run: bool = False) -> None:
     """Uploads all pages to the wiki."""
     site = connect_site()
-    upload_by_namespace(site, TEMPLATE_NAMESPACE, pages, verbose, testing, dry_run)
-    rerun_cargo_table_maintenance(site, pages, verbose, testing, dry_run)
-    upload_by_namespace(site, DATA_NAMESPACE, pages, verbose, testing, dry_run)
-    rerun_cargo_table_maintenance(site, pages, verbose, testing, dry_run)
+    all_pages = wiki_content[CONTENT_PAGES_KEY]
+    upload_by_namespace(site, TEMPLATE_NAMESPACE, all_pages, verbose, testing, dry_run)
+    rerun_cargo_table_maintenance(site, all_pages, verbose, testing, dry_run)
+    upload_by_namespace(site, DATA_NAMESPACE, all_pages, verbose, testing, dry_run)
+    rerun_cargo_table_maintenance(site, all_pages, verbose, testing, dry_run)
 
 
 
 if __name__ == "__main__":
     with open(ROOT_PATH / "pages_wiki_content.json", "r", encoding="utf-8") as file:
-        loaded_pages = json.load(file)
-    all_pages = loaded_pages[CONTENT_PAGES_KEY]
-    stdout.write(f"Uploading {len(all_pages)*2} pages to the wiki...\n")
-    go_bot_upload(all_pages, verbose=True, testing=False, dry_run=False)
+        loaded_wiki_content = json.load(file)
+    stdout.write(f"Uploading {len(loaded_wiki_content[CONTENT_PAGES_KEY])*2} pages to the wiki...\n")
+    go_bot_upload(loaded_wiki_content, verbose=True, testing=False, dry_run=False)
     stdout.write("...done.\n")

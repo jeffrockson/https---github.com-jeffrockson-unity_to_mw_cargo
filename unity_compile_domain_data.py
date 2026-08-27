@@ -436,6 +436,7 @@ def compile_domain_data(model_registry: dict, guid_index: dict, en_strings: dict
     for domain in list(domain_data[DATA_KEY].keys()):
         domain_data[META_KEY_FIELDS][domain] = register_domain_fields(domain_data[DATA_KEY][domain])
     domain_data[META_KEY_GUID_REF_INDEX] = register_references(domain_data[DATA_KEY])
+    stdout.write(f"...finished compiling domain data for {len(domain_data[DATA_KEY])} domains...\n")
     return domain_data
 
 

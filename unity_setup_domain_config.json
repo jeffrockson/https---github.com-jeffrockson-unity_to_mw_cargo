@@ -94,7 +94,7 @@
     "exclude": [
       "amountText"
     ],
-    "expand": []
+    "expand": {}
   },
   
 
@@ -265,7 +265,7 @@
       "tooltipDescription",
       "replaces"
     ],
-    "expand": []
+    "expand": {}
   },
 
   "blightPosts": {
@@ -317,7 +317,7 @@
       "replaces",
       "ruin"
     ],
-    "expand": []
+    "expand": {}
   },
 
   "mines": {
@@ -368,7 +368,7 @@
       "aggregationTag",
       "replaces"
     ],
-    "expand": []
+    "expand": {}
   },
 
   "Institutions": {
@@ -418,7 +418,7 @@
       "tooltipDescription",
       "replaces"
     ],
-    "expand": []
+    "expand": {}
   },
 
 
@@ -428,7 +428,7 @@
       "m_SubObjectName",
       "m_SubObjectType"
     ],
-    "expand": []
+    "expand": {}
   },
 
 
@@ -438,7 +438,7 @@
       "forceShowInEditorPreview",
       "forceHideInEditorPreview"
     ],
-    "expand": []
+    "expand": {}
   },
 
 
@@ -450,7 +450,14 @@
       "msAchivId",
       "substitute"
     ],
-    "expand": []
+    "expand": {
+      "minDifficulty": [
+        "m_Name",
+        "displayName",
+        "key",
+        "shortName"
+      ]
+    }
   },
 
 
@@ -459,7 +466,7 @@
     "exclude": [
       "lockedDescription"
     ],
-    "expand": []
+    "expand": {}
   },
 
 
@@ -476,7 +483,7 @@
       "editorColor",
       "editorShortcut"
     ],
-    "expand": []
+    "expand": {}
   },
 
   "ResourcesDeposits": {
@@ -487,7 +494,7 @@
       "displayMinGradeInDescription",
       "prefabs"
     ],
-    "expand": []
+    "expand": {}
   },
 
   "Lakes": {
@@ -498,14 +505,14 @@
       "displayMinGradeInDescription",
       "prefabs"
     ],
-    "expand": []
+    "expand": {}
   },
 
   "Springs": {
     "exclude": [
       "prefabs"
     ],
-    "expand": []
+    "expand": {}
   },
 
   "Waters": {
@@ -515,14 +522,14 @@
       "springPaneLoop",
       "extractorPaneLoop"
     ],
-    "expand": []
+    "expand": {}
   },
 
   "Ore": {
     "exclude": [
       "panelSound"
     ],
-    "expand": []
+    "expand": {}
   },
 
 
@@ -532,7 +539,7 @@
       "tutorialTopicStarted",
       "tutorialTopicCompleted"
     ],
-    "expand": []
+    "expand": {}
   },
 
 
@@ -551,7 +558,7 @@
       "homelessTooltip",
       "homelessPenalty"
     ],
-    "expand": []
+    "expand": {}
   },
 
 
@@ -561,7 +568,7 @@
       "plantingAnimFlag",
       "harvestingAnimFlag"
     ],
-    "expand": []
+    "expand": {}
   },
   "farmsRecipes": {
     "exclude": [
@@ -576,7 +583,7 @@
     "exclude": [
       "textIconTag"
     ],
-    "expand": []
+    "expand": {}
   },
 
 
@@ -590,7 +597,7 @@
       "arrivalSound",
       "departureSound"
     ],
-    "expand": []
+    "expand": {}
   },
 
 
@@ -600,7 +607,7 @@
       "workerSlotAnim",
       "resolveText"
     ],
-    "expand": []
+    "expand": {}
   },
 
 
@@ -609,7 +616,7 @@
     "exclude": [
       "interactionSound"
     ],
-    "expand": []
+    "expand": {}
   },
 
 
@@ -619,6 +626,6 @@
       "worldZoomInSound",
       "worldGenerationModel"
     ],
-    "expand": []
+    "expand": {}
   }
 }
