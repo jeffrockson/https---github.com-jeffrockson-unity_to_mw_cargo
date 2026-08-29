@@ -19,7 +19,7 @@ from flatten_dict import flatten
 
 
 ROOT_PATH = Path(__file__).parent
-IN_CONFIG_PATH = ROOT_PATH / "unity_setup_domain_config.json"
+IN_CONFIG_PATH = ROOT_PATH / "against_the_storm_config.json"
 WRITE_CARGO_DATA_PATH = ROOT_PATH / "cargo_ready_manifest.json"
 
 CONFIG_RENAME_KEY = "global_rename"
@@ -35,6 +35,7 @@ MANIFEST_TEMPLATES_ATTACH = MANIFEST_DATA + "_attach_templates"
 MANIFEST_TEMPLATES_STORE = MANIFEST_DATA + "_store_templates"
 MANIFEST_QUERIES = MANIFEST_DATA + "_queries"
 MANIFEST_RECORDS = MANIFEST_DATA + "_data"
+MANIFEST_INDEX = MANIFEST_DATA + "_index"
 
 META_TYPE_NULL = "null"
 META_TYPE_BOOL = "Boolean"
@@ -53,6 +54,16 @@ FINAL_FIELD_TYPE = "type"
 
 PATH_JOIN_CHARACTER = "_"
 
+INDEX = "guid_index"
+INDEX_DECLARE = INDEX + "_declare_template"
+INDEX_ATTACH = INDEX + "_attach_template"
+INDEX_STORE = INDEX + "_store_template"
+INDEX_QUERIES = INDEX + "_queries"
+INDEX_RECORDS = INDEX + "_data"
+DOMAIN = "domain"
+PAGE_NAME = "page_name"
+GUID = "guid"
+
 TEMPLATES_NAMESPACE = "Template"
 DATA_NAMESPACE = "Data"
 
@@ -62,11 +73,12 @@ TESTING_ITERATION_LIMIT = 3
 
 def generate_query_copyblock(domain: str, manifest_domain_types: dict) -> str:
     """Generates the query copyblock for a domain."""
-    query = "{{#cargo_query:"
+    query = "{{#cargo_query: "
     query += "|table=" + domain
-    query += "|fields=page_name, guid, " + ", ".join(manifest_domain_types.keys())
+    query += "|fields=" + PAGE_NAME + ", " + GUID + ", " + ", ".join(manifest_domain_types.keys())
     query += "|limit=999999"
     query += "|named args=yes"
+    query += "|order by=" + "sort_order"
     query += "|format=table"
     query += "}}"
     return query
@@ -123,6 +135,8 @@ def convert_field_to_template_parameter_line(field_name: str, field_value: objec
     # then convert the value
     if field_value is None or field_value == "":
         return None
+    if isinstance(field_value, (dict, list)) and len(field_value) == 0:
+        return None
     line = f"|{field_name}={field_value}"
     return line
 
@@ -168,11 +182,11 @@ def reduce_domain_types(types: set) -> str|list:
 
 def build_declare_template_for_domain(domain: str, manifest_domain_types: dict) -> str:
     """Builds the declare template for a domain."""
-    template = "{{#cargo_declare:"
+    template = "{{#cargo_declare: "
     template += f"_table={domain}"
     parameters = [
-        "page_name=" + META_TYPE_INDEXED_STRING,
-        "guid=" + META_TYPE_INDEXED_STRING,
+        PAGE_NAME + "=" + META_TYPE_INDEXED_STRING,
+        GUID + "=" + META_TYPE_INDEXED_STRING,
     ]
     for field_name, field_type in manifest_domain_types.items():
         parameters.append(f"{field_name}={field_type}")
@@ -186,11 +200,11 @@ def build_attach_template_for_domain(domain: str) -> str:
 
 def build_store_template_for_domain(domain: str, manifest_domain_types: dict) -> str:
     """Builds the store template for a domain."""
-    template = "{{#cargo_store:"
+    template = "{{#cargo_store: "
     template += f"_table={domain}"
     parameters = [
-        "page_name=" + "{{{" + "page_name" + "|}}}",
-        "guid=" + "{{{" + "guid" + "|}}}",
+        PAGE_NAME + "=" + "{{{" + PAGE_NAME + "|}}}",
+        GUID + "=" + "{{{" + GUID + "|}}}",
     ]
     for field_name in manifest_domain_types.keys():
         new_param = f"{field_name}="
@@ -205,7 +219,7 @@ def build_store_template_for_domain(domain: str, manifest_domain_types: dict) ->
 def finalize_record_as_template_markup(domain: str, guid: str, param_lines: list) -> str:
     """Converts the list of parameters to one template call for the record."""
     t_call = "{{" + domain
-    t_call += f"|guid={guid}"
+    t_call += f"|{GUID}={guid}"
     t_call += "".join(param_lines)
     t_call += "}}"
     return t_call
@@ -214,6 +228,7 @@ def finalize_domain_manifest(domain: str, manifest: dict) -> None:
     """Finalizes the domain manifest."""
     manifest_domain_types = manifest[META_KEY_TYPES][domain]
     manifest_data = manifest[MANIFEST_DATA]
+    manifest_index = manifest[MANIFEST_INDEX]
     for field_name, field_types in manifest_domain_types.items():
         field_types = manifest_domain_types[field_name]
         manifest_domain_types[field_name] = reduce_domain_types(field_types)
@@ -237,7 +252,62 @@ def finalize_domain_manifest(domain: str, manifest: dict) -> None:
         manifest_data[MANIFEST_RECORDS][domain][page_key] = finalize_record_as_template_markup(domain, guid, param_lines)
         if page_key != guid:
             manifest_data[MANIFEST_RECORDS][domain].pop(guid)
+        manifest_index[INDEX_RECORDS][guid] = {
+            DOMAIN: domain,
+            PAGE_NAME: page_key,
+        }
     manifest_data[MANIFEST_QUERIES][domain] = generate_query_copyblock(domain, manifest_domain_types)
+
+
+
+def build_templates_for_guid_index(manifest: dict) -> None:
+    """Builds the templates for the guid index."""
+    template_dec =  "{{#cargo_declare: "
+    template_dec += f"_table={INDEX}"
+    parameters = [
+        PAGE_NAME + "=" + META_TYPE_INDEXED_STRING,
+        GUID + "=" + META_TYPE_INDEXED_STRING,
+        DOMAIN + "=" + META_TYPE_INDEXED_STRING,
+    ]
+    template_dec += "|" + "|".join(parameters)
+    template_dec += "}}"
+    manifest[MANIFEST_INDEX][INDEX_DECLARE] = template_dec
+    template_att = "{{#cargo_attach: "
+    template_att += f"_table={INDEX}"
+    template_att += "}}"
+    manifest[MANIFEST_INDEX][INDEX_ATTACH] = template_att
+    template_store = "{{#cargo_store: "
+    template_store += f"_table={INDEX}"
+    parameters = [
+        PAGE_NAME + "=" + "{{{" + PAGE_NAME + "|}}}",
+        GUID + "=" + "{{{" + GUID + "|}}}",
+        DOMAIN + "=" + "{{{" + DOMAIN + "|}}}",
+    ]
+    template_store += "|" + "|".join(parameters)
+    template_store += "}}"
+    manifest[MANIFEST_INDEX][INDEX_STORE] = template_store
+    query = "{{#cargo_query: "
+    query += "|table=" + INDEX
+    query += "|fields=" + GUID + ", " + PAGE_NAME + ", " + DOMAIN
+    query += "|limit=999999"
+    query += "|named args=yes"
+    query += "|format=table"
+    query += "}}"
+    manifest[MANIFEST_INDEX][INDEX_QUERIES] = query
+
+def finalize_guid_index(manifest: dict) -> None:
+    """Finalizes the guid index."""
+    index = manifest[MANIFEST_INDEX]
+    index_records = index[INDEX_RECORDS]
+    for guid in list(index_records.keys()):
+        index_entry = index_records.pop(guid)
+        domain = index_entry[DOMAIN]
+        page_name = index_entry[PAGE_NAME]
+        param_lines = [
+            f"|{PAGE_NAME}={page_name}",
+            f"|{DOMAIN}={domain}",
+        ]
+        index_records[guid] = finalize_record_as_template_markup(INDEX, guid, param_lines)
 
 
 
@@ -275,7 +345,10 @@ def extract_cargo_manifest(standardized_domain_data: dict, verbose: bool = False
             MANIFEST_TEMPLATES_ATTACH: {},
             MANIFEST_TEMPLATES_STORE: {},
             MANIFEST_QUERIES: {},
-            MANIFEST_RECORDS: {},
+            MANIFEST_RECORDS: {}
+        },
+        MANIFEST_INDEX: {
+            INDEX_RECORDS: {}
         }
     }
     domain_number = 0
@@ -290,6 +363,8 @@ def extract_cargo_manifest(standardized_domain_data: dict, verbose: bool = False
         finalize_domain_manifest(domain, manifest)
         if verbose:
             stdout.write(f"...done with {domain}\n")
+    build_templates_for_guid_index(manifest)
+    finalize_guid_index(manifest)
     stdout.write(f"...finished developing manifest for {domain_number} domains...\n")
     return manifest
 

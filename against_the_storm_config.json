@@ -456,6 +456,59 @@
         "displayName",
         "key",
         "shortName"
+      ],
+      "biome": [
+        "m_Name",
+        "displayName",
+        "key"
+      ],
+      "category": [
+        "m_Name",
+        "displayName",
+        "key"
+      ],
+      "buildings_1_building": [
+        "m_Name",
+        "displayName",
+        "key"
+      ],
+      "buildings_2_building": [
+        "m_Name",
+        "displayName",
+        "key"
+      ],
+      "buildings_3_building": [
+        "m_Name",
+        "displayName",
+        "key"
+      ],
+      "race": [
+        "m_Name",
+        "pluralName",
+        "key"
+      ],
+      "good_good": [
+        "m_Name",
+        "displayName",
+        "key"
+      ],
+      "payment": [
+        "m_Name",
+        "displayName",
+        "key",
+        "costPerPayment",
+        "amount",
+        "good"
+      ],
+      "deposits1": [
+        "m_Name",
+        "displayName",
+        "key"
+      ],
+      "eventModel": [
+        "m_Name",
+        "displayName",
+        "key"
       ]
     }
   },

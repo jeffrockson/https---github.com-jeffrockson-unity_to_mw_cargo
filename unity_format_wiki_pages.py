@@ -17,10 +17,18 @@ IN_MANIFEST_ATTACH_KEY = "domains_manifests_attach_templates"
 IN_MANIFEST_STORE_KEY = "domains_manifests_store_templates"
 IN_MANIFEST_RECORDS_KEY = "domains_manifests_data"
 
+IN_INDEX_KEY = "domains_manifests_index"
+IN_INDEX_DECLARE_KEY = "guid_index_declare_template"
+IN_INDEX_ATTACH_KEY = "guid_index_attach_template"
+IN_INDEX_STORE_KEY = "guid_index_store_template"
+IN_INDEX_RECORDS_KEY = "guid_index_data"
+
 CONTENT_PAGES_KEY = "pages_content"
 CONTENT_PAGES_NAMESPACE_KEY = "namespace"
 CONTENT_PAGES_TITLE_KEY = "title"
 CONTENT_PAGES_CONTENT_KEY = "contents"
+
+GUID_INDEX = "guid_index"
 
 TEMPLATE_NAMESPACE = "Template"
 DATA_NAMESPACE = "Data"
@@ -111,6 +119,67 @@ def build_domain_pages(domain: str, manifest: dict) -> dict:
 
 
 
+def clarify_index_template_call(entry: str) -> str:
+    """Splits the record and reformats the template name."""
+    # pylint: disable=unused-variable
+    prefix, remainder = entry.split("|", 1)
+    template_call = "{{" + TEMPLATE_PAGE_NAME + PAGE_NAME_SEPARATOR + GUID_INDEX
+    template_call += "|" + remainder
+    return template_call
+
+
+
+def paginate_index_entries(entries: dict) -> list:
+    """Paginate the index entries."""
+    pages = []
+    page_number = 1
+    page_title = DATA_NAMESPACE + NAMESPACE_SEPARATOR + GUID_INDEX + PAGE_NAME_SEPARATOR + str(page_number)
+    current_page = {
+        CONTENT_PAGES_NAMESPACE_KEY: DATA_NAMESPACE,
+        CONTENT_PAGES_TITLE_KEY: page_title,
+        CONTENT_PAGES_CONTENT_KEY: AUTO_CONTENT_NOTE + "\n"
+    }
+    current_page_size = 0
+    for entry in entries.values():
+        size_bytes = len(entry.encode("utf-8")) + 11 # 11 for newlines and "Dataloader" prefix
+        if current_page_size + size_bytes > MAX_PAGE_BYTES:
+            pages.append(current_page)
+            page_number += 1
+            page_title = DATA_NAMESPACE + NAMESPACE_SEPARATOR + GUID_INDEX + PAGE_NAME_SEPARATOR + str(page_number)
+            current_page = {
+                CONTENT_PAGES_NAMESPACE_KEY: DATA_NAMESPACE,
+                CONTENT_PAGES_TITLE_KEY: page_title,
+                CONTENT_PAGES_CONTENT_KEY: AUTO_CONTENT_NOTE + "\n"
+            }
+            current_page_size = 0
+        template_call = clarify_index_template_call(entry)
+        current_page[CONTENT_PAGES_CONTENT_KEY] += template_call + "\n\n"
+        current_page_size += size_bytes
+    pages.append(current_page)
+    return pages
+
+
+
+def build_guid_index_pages(index: dict) -> dict:
+    """Builds the guid index pages."""
+    template_page_title = TEMPLATE_NAMESPACE + NAMESPACE_SEPARATOR + TEMPLATE_PAGE_NAME + PAGE_NAME_SEPARATOR + GUID_INDEX
+    declare = index[IN_INDEX_DECLARE_KEY]
+    attach = index[IN_INDEX_ATTACH_KEY]
+    store = index[IN_INDEX_STORE_KEY]
+    entries = index[IN_INDEX_RECORDS_KEY]
+    index_pages = [
+        {
+            CONTENT_PAGES_NAMESPACE_KEY: TEMPLATE_NAMESPACE,
+            CONTENT_PAGES_TITLE_KEY: template_page_title,
+            CONTENT_PAGES_CONTENT_KEY: format_template_page(declare, attach, store)
+        }    
+    ]
+    index_records = paginate_index_entries(entries)
+    index_pages.extend(index_records)
+    return index_pages
+
+
+
 def format_wiki_pages(cargo_manifest: dict, verbose: bool = False, testing: bool = False) -> dict:
     """Forms the wiki pages out of the cargo manifest."""
     pages_content = {
@@ -129,6 +198,8 @@ def format_wiki_pages(cargo_manifest: dict, verbose: bool = False, testing: bool
         pages_content[CONTENT_PAGES_KEY].extend(domain_pages)
         if verbose:
             stdout.write("...done\n")
+    index = cargo_manifest[IN_INDEX_KEY]
+    pages_content[CONTENT_PAGES_KEY].extend(build_guid_index_pages(index))
     stdout.write(f"...finished formatting pages for {domain_number} domains...\n")
     return pages_content
 

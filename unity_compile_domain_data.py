@@ -14,7 +14,7 @@ from unity_helper_merge_config import merge_config
 
 
 ROOT_PATH = Path(__file__).parent
-READ_CONFIG_PATH = ROOT_PATH / "unity_setup_domain_config.json"
+READ_CONFIG_PATH = ROOT_PATH / "against_the_storm_config.json"
 READ_ENGLISH_STRINGS_PATH = ROOT_PATH / "Assets" / "Resources" / "texts" / "en.json"
 WRITE_DOMAIN_DATA_PATH = ROOT_PATH / "domain_data.json"
 
@@ -267,7 +267,10 @@ def replace_selected_reference(selected_key: str, guid: str, expand_list: dict, 
     expand_asset_data(selected_asset_data, expand_list, guid_index, en_strings, verbose)
     if verbose:
         stdout.write(f"...expanded guid {guid} with {len(selected_asset_data.keys())} keys...\n")
-    return selected_asset_data
+    return {
+        "guid": guid,
+        **selected_asset_data
+    }
 
 def expand_selected_field(selected_key: str, selected_value: object, expand_list: dict, guid_index: dict, en_strings: dict, verbose: bool) -> dict:
     """Expands the selected field's guids or leave as-is."""
