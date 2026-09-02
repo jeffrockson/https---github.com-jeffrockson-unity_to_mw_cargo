@@ -4,9 +4,12 @@ Uploads formatted wiki pages to the MediaWiki instance via pywikibot.
 Reads pages_wiki_content.json and pushes each page in order:
   1. Template pages (cargo_declare + cargo_store)
   2. Data pages (template calls per record)
+
+Pass an optional domain name to upload only that domain plus guid_index.
 """
-import json
 import os
+import json
+import argparse
 from pathlib import Path
 from sys import stdout
 
@@ -27,6 +30,7 @@ TEMPLATE_NAMESPACE = "Template"
 DATA_NAMESPACE = "Data"
 
 TEMPLATE_NAME = "Dataloader"
+GUID_INDEX = "guid_index"
 
 EDIT_SUMMARY = "Automated data import from unity_to_mw_cargo"
 
@@ -52,6 +56,22 @@ def upload_page(site: pywikibot.Site, title: str, content: str, verbose: bool, d
         stdout.write(f"[DRY RUN] Would upload: {title}\n")
         return
     page.save(summary=EDIT_SUMMARY, minor=False, quiet=True)
+
+
+
+def filter_pages_for_domain(all_pages: list, domain: str) -> list:
+    """Returns a list of pages for one domain plus guid_index."""
+    domain_template = f"{TEMPLATE_NAMESPACE}:{TEMPLATE_NAME}/{domain}"
+    domain_data_prefix = f"{DATA_NAMESPACE}:{domain}/"
+    index_template = f"{TEMPLATE_NAMESPACE}:{TEMPLATE_NAME}/{GUID_INDEX}"
+    index_data_prefix = f"{DATA_NAMESPACE}:{GUID_INDEX}/"
+    return [
+        page for page in all_pages
+        if page[CONTENT_PAGES_TITLE_KEY] == domain_template
+        or page[CONTENT_PAGES_TITLE_KEY].startswith(domain_data_prefix)
+        or page[CONTENT_PAGES_TITLE_KEY] == index_template
+        or page[CONTENT_PAGES_TITLE_KEY].startswith(index_data_prefix)
+    ]
 
 
 
@@ -105,20 +125,29 @@ def rerun_cargo_table_maintenance(pages: list, verbose: bool, testing: bool, dry
 
 
 
-def go_bot_upload(wiki_content: dict, verbose: bool = False, testing: bool = False, dry_run: bool = False) -> None:
-    """Uploads all pages to the wiki."""
+def go_bot_upload(wiki_content: dict, domain: str | None = None, verbose: bool = False, testing: bool = False, dry_run: bool = False) -> None:
+    """Uploads pages to the wiki. When domain is set, uploads that domain and guid_index only."""
     site = connect_site()
     all_pages = wiki_content[CONTENT_PAGES_KEY]
-    upload_by_namespace(site, TEMPLATE_NAMESPACE, all_pages, verbose, testing, dry_run)
-    rerun_cargo_table_maintenance(all_pages, verbose, testing, dry_run)
-    upload_by_namespace(site, DATA_NAMESPACE, all_pages, verbose, testing, dry_run)
-    rerun_cargo_table_maintenance(all_pages, verbose, testing, dry_run)
+    pages = filter_pages_for_domain(all_pages, domain) if domain else all_pages
+    if domain and verbose:
+        stdout.write(f"Filtered to domain {domain} and guid_index ({len(pages)} pages).\n")
+    upload_by_namespace(site, TEMPLATE_NAMESPACE, pages, verbose, testing, dry_run)
+    rerun_cargo_table_maintenance(pages, verbose, testing, dry_run)
+    upload_by_namespace(site, DATA_NAMESPACE, pages, verbose, testing, dry_run)
+    rerun_cargo_table_maintenance(pages, verbose, testing, dry_run)
 
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Upload wiki pages from pages_wiki_content.json")
+    parser.add_argument("domain", nargs="?", help="Single domain to upload (guid_index is always included)")
+    args = parser.parse_args()
     with open(ROOT_PATH / "pages_wiki_content.json", "r", encoding="utf-8") as file:
         loaded_wiki_content = json.load(file)
-    stdout.write(f"Uploading {len(loaded_wiki_content[CONTENT_PAGES_KEY])*2} pages to the wiki...\n")
-    go_bot_upload(loaded_wiki_content, verbose=True, testing=False, dry_run=False)
+    if args.domain:
+        stdout.write(f"Uploading domain {args.domain} and guid_index to the wiki...\n")
+    else:
+        stdout.write(f"Uploading {len(loaded_wiki_content[CONTENT_PAGES_KEY])*2} pages to the wiki...\n")
+    go_bot_upload(loaded_wiki_content, args.domain, verbose=True, testing=False, dry_run=False)
     stdout.write("...done.\n")
