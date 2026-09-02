@@ -16,10 +16,11 @@ from pathlib import Path
 
 from flatten_dict import flatten
 
+from unity_orchestrator import GAME_CONFIG
+
 
 
 ROOT_PATH = Path(__file__).parent
-IN_CONFIG_PATH = ROOT_PATH / "against_the_storm_config.json"
 WRITE_CARGO_DATA_PATH = ROOT_PATH / "cargo_ready_manifest.json"
 
 CONFIG_RENAME_KEY = "global_rename"
@@ -330,7 +331,7 @@ def process_global_renames_node(node: object, config_renames: dict) -> object:
 
 def extract_cargo_manifest(standardized_domain_data: dict, verbose: bool = False, testing: bool = False) -> str:
     """Converts domain data and meta data into cargo-ready manifest."""
-    with open(IN_CONFIG_PATH, "r", encoding="utf-8") as config_file:
+    with open(GAME_CONFIG, "r", encoding="utf-8") as config_file:
         config_data = json.load(config_file)
     config_renames = config_data[CONFIG_RENAME_KEY]
     for domain in list(standardized_domain_data[DOMAIN_DATA_KEY].keys()):

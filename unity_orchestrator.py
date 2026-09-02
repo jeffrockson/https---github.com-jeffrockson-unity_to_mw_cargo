@@ -20,6 +20,8 @@ REGISTRY_ASSET_PATHS = [
     ROOT_PATH / "Assets" / "MonoBehaviour" / "Settings.asset",
 ]
 
+GAME_CONFIG = ROOT_PATH / "unity_setup_game_config.json"
+
 
 
 if __name__ == "__main__":

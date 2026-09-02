@@ -11,10 +11,11 @@ from unity_helper_parse_yaml import parse_yaml
 from unity_helper_normalize_asset_tree import normalize_asset_tree
 from unity_helper_merge_config import merge_config
 
+from unity_orchestrator import GAME_CONFIG
+
 
 
 ROOT_PATH = Path(__file__).parent
-READ_CONFIG_PATH = ROOT_PATH / "against_the_storm_config.json"
 READ_ENGLISH_STRINGS_PATH = ROOT_PATH / "Assets" / "Resources" / "texts" / "en.json"
 WRITE_DOMAIN_DATA_PATH = ROOT_PATH / "domain_data.json"
 
@@ -416,7 +417,7 @@ def compile_domain_data(model_registry: dict, guid_index: dict, en_strings: dict
         META_KEY_GUID_REF_INDEX: {},
         DATA_KEY: {},
     }
-    with open(READ_CONFIG_PATH, "r", encoding="utf-8") as config_file:
+    with open(GAME_CONFIG, "r", encoding="utf-8") as config_file:
         all_config = json.load(config_file)
     if en_strings is None:
         with open(READ_ENGLISH_STRINGS_PATH, "r", encoding="utf-8") as strings_file:

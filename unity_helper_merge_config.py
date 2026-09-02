@@ -6,10 +6,11 @@ import json
 from sys import stdout
 from pathlib import Path
 
+from unity_orchestrator import GAME_CONFIG
+
 
 
 ROOT_PATH = Path(__file__).parent
-READ_DOMAIN_CONFIGURATION_PATH = ROOT_PATH / "unity_setup_domain_config.json"
 
 ALL_DOMAINS_KEY = "all_domains"
 EXCLUDE_KEY = "exclude"
@@ -60,7 +61,7 @@ def merge_domain(domain_config: dict, all_config) -> dict:
 def merge_config(all_config: dict|None, domain: str) -> dict:
     """Returns one configuration set for the specified domain."""
     if all_config is None:
-        with open(READ_DOMAIN_CONFIGURATION_PATH, "r", encoding="utf-8") as file:
+        with open(GAME_CONFIG, "r", encoding="utf-8") as file:
             all_config = json.load(file)
     if domain in all_config:
         return merge_domain(all_config[domain], all_config[ALL_DOMAINS_KEY])

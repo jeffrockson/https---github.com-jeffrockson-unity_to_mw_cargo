@@ -74,7 +74,7 @@ def upload_by_namespace(site: pywikibot.Site, namespace: str, pages: list, verbo
 
 
 
-def rerun_cargo_table_maintenance(site: pywikibot.Site, pages: list, verbose: bool, testing: bool, dry_run: bool) -> None:
+def rerun_cargo_table_maintenance(pages: list, verbose: bool, testing: bool, dry_run: bool) -> None:
     """Triggers Cargo to create tables for all template pages."""
     if verbose:
         stdout.write("(Re)creating cargo tables...\n")
@@ -110,9 +110,9 @@ def go_bot_upload(wiki_content: dict, verbose: bool = False, testing: bool = Fal
     site = connect_site()
     all_pages = wiki_content[CONTENT_PAGES_KEY]
     upload_by_namespace(site, TEMPLATE_NAMESPACE, all_pages, verbose, testing, dry_run)
-    rerun_cargo_table_maintenance(site, all_pages, verbose, testing, dry_run)
+    rerun_cargo_table_maintenance(all_pages, verbose, testing, dry_run)
     upload_by_namespace(site, DATA_NAMESPACE, all_pages, verbose, testing, dry_run)
-    rerun_cargo_table_maintenance(site, all_pages, verbose, testing, dry_run)
+    rerun_cargo_table_maintenance(all_pages, verbose, testing, dry_run)
 
 
 

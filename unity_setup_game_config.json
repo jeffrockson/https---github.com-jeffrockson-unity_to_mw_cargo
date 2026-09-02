@@ -448,7 +448,8 @@
       "isAchiv",
       "achivId",
       "msAchivId",
-      "substitute"
+      "substitute",
+      "maxLeft"
     ],
     "expand": {
       "minDifficulty": [
@@ -509,6 +510,10 @@
         "m_Name",
         "displayName",
         "key"
+      ],
+      "modifier": [
+        "m_Name",
+        "effect"
       ]
     }
   },
